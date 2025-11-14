@@ -1,8 +1,29 @@
 {
-  "name": "paperless-upload-thunderbird",
-  "version": "0.8.2",
-  "description": "Upload PDF attachments directly to Paperless-ngx from Thunderbird",
+  "name": "vikunja-upload-thunderbird",
+  "version": "1.0.0",
+  "description": "Upload PDF attachments directly to Vikunja from Thunderbird",
+  "scripts": {
+    "build": "bash build.sh",
+    "build:watch": "bash build.sh && echo 'Watching for changes...' && fswatch -o . | xargs -n1 -I{} bash build.sh",
+    "clean": "rm -rf dist/*.xpi",
+    "package": "npm run build"
+  },
   "dependencies": {
     "fuse.js": "^7.1.0"
-  }
+  },
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Philantrop/paperless-upload-thunderbird.git"
+  },
+  "keywords": [
+    "thunderbird",
+    "vikunja",
+    "addon",
+    "extension",
+    "task-management",
+    "email"
+  ],
+  "author": "Wulf C. Krueger",
+  "license": "MIT"
 }

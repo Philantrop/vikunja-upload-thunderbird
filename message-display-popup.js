@@ -1,3 +1,14 @@
+/**
+ * Vikunja Uploader for Thunderbird - Message Display Popup
+ * 
+ * Copyright (c) 2024 Sebastian Jung (https://github.com/sebastian-xyz/paperless-upload-thunderbird)
+ * Copyright (c) 2025 Wulf C. Krueger
+ * 
+ * Licensed under the MIT License. See LICENSE file for details.
+ * 
+ * This work is heavily based upon paperless-upload-thunderbird by Sebastian Jung.
+ */
+
 document.addEventListener('DOMContentLoaded', async function () {
   const quickUploadBtn = document.getElementById('quick-upload-btn');
   const advancedUploadBtn = document.getElementById('advanced-upload-btn');
@@ -15,22 +26,9 @@ document.addEventListener('DOMContentLoaded', async function () {
 async function handleQuickUpload(errorContainer) {
   try {
     clearError(errorContainer);
-    const currentTab = await getCurrentTab();
-
-    if (!currentTab) {
-      showError(errorContainer, 'Unable to determine current tab');
-      return;
-    }
-
-    // Get the displayed messages (returns a MessageList)
-    const messageList = await browser.messageDisplay.getDisplayedMessages(currentTab.id);
-
-    // Get the first message from the MessageList
-    let message = null;
-
-    if (messageList && messageList.messages && messageList.messages.length > 0) {
-      message = messageList.messages[0];
-    }
+    
+    // Get the displayed message directly
+    const message = await getDisplayedMessage();
 
     if (!message) {
       showError(errorContainer, 'No message is currently displayed');
@@ -47,29 +45,16 @@ async function handleQuickUpload(errorContainer) {
     window.close();
   } catch (error) {
     console.error('Error in quick upload:', error);
-    showError(errorContainer, 'Error initiating quick upload');
+    showError(errorContainer, 'Error initiating quick upload: ' + error.message);
   }
 }
 
 async function handleAdvancedUpload(errorContainer) {
   try {
     clearError(errorContainer);
-    const currentTab = await getCurrentTab();
-
-    if (!currentTab) {
-      showError(errorContainer, 'Unable to determine current tab');
-      return;
-    }
-
-    // Get the displayed messages (returns a MessageList)
-    const messageList = await browser.messageDisplay.getDisplayedMessages(currentTab.id);
-
-    // Get the first message from the MessageList
-    let message = null;
-
-    if (messageList && messageList.messages && messageList.messages.length > 0) {
-      message = messageList.messages[0];
-    }
+    
+    // Get the displayed message directly
+    const message = await getDisplayedMessage();
 
     if (!message) {
       showError(errorContainer, 'No message is currently displayed');
@@ -86,7 +71,37 @@ async function handleAdvancedUpload(errorContainer) {
     window.close();
   } catch (error) {
     console.error('Error in advanced upload:', error);
-    showError(errorContainer, 'Error initiating advanced upload');
+    showError(errorContainer, 'Error initiating advanced upload: ' + error.message);
+  }
+}
+
+async function getDisplayedMessage() {
+  try {
+    // First try the newer API
+    const tabs = await browser.tabs.query({ active: true, currentWindow: true });
+    
+    if (tabs && tabs.length > 0) {
+      const messageList = await browser.messageDisplay.getDisplayedMessages(tabs[0].id);
+      
+      if (messageList && messageList.messages && messageList.messages.length > 0) {
+        return messageList.messages[0];
+      }
+    }
+    
+    // Fallback: try getting message from the current tab context
+    const currentTabs = await browser.mailTabs.query({ active: true, currentWindow: true });
+    
+    if (currentTabs && currentTabs.length > 0) {
+      const messageList = await browser.messageDisplay.getDisplayedMessage(currentTabs[0].id);
+      if (messageList) {
+        return messageList;
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error getting displayed message:', error);
+    return null;
   }
 }
 

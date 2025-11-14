@@ -1,5 +1,13 @@
-// Shared utility functions for Paperless-ngx PDF Uploader extension
-
+/**
+ * Vikunja Uploader for Thunderbird - Utility Functions
+ * 
+ * Copyright (c) 2024 Sebastian Jung (https://github.com/sebastian-xyz/paperless-upload-thunderbird)
+ * Copyright (c) 2025 Wulf C. Krueger
+ * 
+ * Licensed under the MIT License. See LICENSE file for details.
+ * 
+ * This work is heavily based upon paperless-upload-thunderbird by Sebastian Jung.
+ */
 
 /**
  * Display an error message in the message area
@@ -202,6 +210,75 @@ async function makePaperlessRequest(endpoint, options = {}, settings = null) {
   return await fetch(url, mergedOptions);
 }
 
+// --- Vikunja helpers (new) ---
+/**
+ * Get Vikunja settings from browser storage
+ * @returns {Promise<Object>} Settings object with vikunjaUrl and vikunjaToken
+ */
+async function getVikunjaSettings() {
+  return await browser.storage.sync.get(['vikunjaUrl', 'vikunjaToken', 'vikunjaProject', 'defaultTags']);
+}
+
+/**
+ * Test connection to Vikunja API
+ * @param {string} url - Vikunja base URL
+ * @param {string} token - Vikunja API token
+ * @returns {Promise<boolean>} True if connection successful, false otherwise
+ */
+async function testVikunjaConnection(url, token) {
+  try {
+    // Test with /api/v1/user endpoint which should always be accessible with valid token
+    const endpoint = `${url.replace(/\/$/, '')}/api/v1/user`;
+    const response = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    return response.ok;
+  } catch (error) {
+    console.error('Vikunja connection test failed:', error);
+    return false;
+  }
+}
+
+/**
+ * Make API request to Vikunja
+ * @param {string} endpoint - API endpoint (e.g., '/api/v1/tasks')
+ * @param {Object} options - Fetch options
+ * @param {Object} settings - Vikunja settings with url and token
+ * @returns {Promise<Response>} Fetch response
+ */
+async function makeVikunjaRequest(endpoint, options = {}, settings = null) {
+  if (!settings) {
+    settings = await getVikunjaSettings();
+  }
+
+  if (!settings.vikunjaUrl || !settings.vikunjaToken) {
+    throw new Error('Vikunja settings not configured');
+  }
+
+  const url = `${settings.vikunjaUrl.replace(/\/$/, '')}${endpoint}`;
+  const defaultOptions = {
+    headers: {
+      'Authorization': `Bearer ${settings.vikunjaToken}`,
+      'Content-Type': 'application/json'
+    }
+  };
+
+  const mergedOptions = {
+    ...defaultOptions,
+    ...options,
+    headers: {
+      ...defaultOptions.headers,
+      ...(options.headers || {})
+    }
+  };
+
+  return await fetch(url, mergedOptions);
+}
+
 // Export functions for use in other files
 if (typeof window !== 'undefined') {
   window.showError = showError;
@@ -209,6 +286,8 @@ if (typeof window !== 'undefined') {
   window.clearMessages = clearMessages;
   window.getPaperlessSettings = getPaperlessSettings;
   window.testPaperlessConnection = testPaperlessConnection;
+  window.getVikunjaSettings = getVikunjaSettings;
+  window.testVikunjaConnection = testVikunjaConnection;
   window.isValidUrl = isValidUrl;
   window.extractNameFromEmail = extractNameFromEmail;
   window.setButtonLoading = setButtonLoading;
@@ -216,4 +295,5 @@ if (typeof window !== 'undefined') {
   window.sendMessageToParent = sendMessageToParent;
   window.closeWindowWithDelay = closeWindowWithDelay;
   window.makePaperlessRequest = makePaperlessRequest;
+  window.makeVikunjaRequest = makeVikunjaRequest;
 }

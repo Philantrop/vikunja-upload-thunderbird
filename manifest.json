@@ -1,39 +1,39 @@
 {
-  "manifest_version": 3,
-  "name": "Paperless-ngx Uploader",
-  "version": "0.8.2",
-  "description": "Upload PDF attachments directly to Paperless-ngx from Thunderbird",
-  "browser_specific_settings": {
+  "manifest_version": 2,
+  "name": "Vikunja Uploader",
+  "version": "1.0.0",
+  "description": "Upload PDF attachments directly to Vikunja from Thunderbird",
+  "applications": {
     "gecko": {
-      "id": "@paperless-uploader.sebastian-xyz",
-      "strict_min_version": "140.0"
+      "id": "@vikunja-uploader.thunderbird",
+      "strict_min_version": "91.0"
     }
   },
+  "content_security_policy": "script-src 'self'; object-src 'self'",
   "permissions": [
     "messagesRead",
     "menus",
     "notifications",
-    "permissions",
-    "storage"
-  ],
-  "optional_host_permissions": [
+    "storage",
     "http://*/*",
     "https://*/*"
   ],
   "background": {
-    "scripts": [
-      "background.js"
-    ]
+    "scripts": ["background.js"],
+    "persistent": true
   },
   "message_display_action": {
-    "default_title": "Paperless PDF Uploader",
+    "default_title": "Vikunja Uploader",
     "default_popup": "message-display-popup.html",
     "default_icon": "icons/icon-32.png"
   },
-  "action": {
-    "default_title": "Paperless PDF Uploader",
+  "browser_action": {
+    "default_title": "Vikunja Uploader",
     "default_popup": "popup.html",
-    "default_icon": "icons/icon-32.png"
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png"
+    }
   },
   "options_ui": {
     "page": "options.html",

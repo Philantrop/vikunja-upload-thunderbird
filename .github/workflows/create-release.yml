@@ -38,16 +38,14 @@ jobs:
             options.js \
             upload-dialog.html \
             upload-dialog.js \
-            create-correspondent.html \
-            create-correspondent.js \
-            create-document-type.html \
-            create-document-type.js \
+            select-attachments.html \
+            select-attachments.js \
             message-display-popup.html \
             message-display-popup.js \
             fuse.min.js \
             utils.js \
             icons/ \
-            -x "*.git*" "*.github*" "README.md" "LICENSE" "assets/" "package.json"
+            -x "*.git*" "*.github*" "README.md" "LICENSE" "package.json"
 
           # Verify the XPI was created
           ls -la *.xpi

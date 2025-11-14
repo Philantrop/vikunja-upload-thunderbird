@@ -1,4 +1,14 @@
 <!doctype html>
+<!--
+  Vikunja Uploader for Thunderbird - Message Display Popup
+  
+  Copyright (c) 2024 Sebastian Jung (https://github.com/sebastian-xyz/paperless-upload-thunderbird)
+  Copyright (c) 2025 Wulf C. Krueger
+  
+  Licensed under the MIT License. See LICENSE file for details.
+  
+  This work is heavily based upon paperless-upload-thunderbird by Sebastian Jung.
+-->
 <html>
 
 <head>
@@ -15,6 +25,15 @@
       padding: 12px;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: #ffffff;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      body { background: #252526; }
+      .popup-header { border-bottom-color: #444; }
+      .popup-header h4 { color: #ddd; }
+      .popup-btn { background: #0b7dda; color: #ddd; }
+      .popup-btn:hover { background: #0056b3; }
+      .error-message { background: #3d2a2a; color: #ffb3b3; border-color: #5a3a3a; }
     }
 
     .popup-header {
@@ -104,7 +123,7 @@
   <div class="popup-header">
     <h4>
       <img src="icons/icon-32.png" alt="Upload">
-      Upload to Paperless-ngx
+      Upload to Vikunja
     </h4>
   </div>
 

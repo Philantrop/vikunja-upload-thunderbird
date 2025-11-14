@@ -1,155 +1,25 @@
+/**
+ * Vikunja Uploader for Thunderbird - Advanced Upload Dialog
+ * 
+ * Copyright (c) 2024 Sebastian Jung (https://github.com/sebastian-xyz/paperless-upload-thunderbird)
+ * Copyright (c) 2025 Wulf C. Krueger
+ * 
+ * Licensed under the MIT License. See LICENSE file for details.
+ * 
+ * This work is heavily based upon paperless-upload-thunderbird by Sebastian Jung.
+ */
+
 let currentAttachments = [];
 let currentMessage = null;
-let selectedTags = [];
-let availableTags = [];
+let selectedLabels = [];
+let availableLabels = [];
 let fuse = null;
 
 document.addEventListener('DOMContentLoaded', async function () {
   await loadUploadData();
   setupEventListeners();
-  await loadPaperlessData();
-  setupPlusButtons();
+  await loadVikunjaData();
 });
-// Add event listeners for plus buttons to create new correspondent/document type
-function setupPlusButtons() {
-  const addCorrespondentBtn = document.getElementById('addCorrespondentBtn');
-  if (addCorrespondentBtn) {
-    addCorrespondentBtn.addEventListener('click', async () => {
-      await createNewCorrespondent();
-    });
-  }
-  const addDocumentTypeBtn = document.getElementById('addDocumentTypeBtn');
-  if (addDocumentTypeBtn) {
-    addDocumentTypeBtn.addEventListener('click', async () => {
-      await createNewDocumentType();
-    });
-  }
-
-  // Listen for messages from popup windows
-  window.addEventListener('message', handlePopupMessage);
-}
-
-async function createNewCorrespondent() {
-  try {
-    const popup = await browser.windows.create({
-      url: browser.runtime.getURL('create-correspondent.html'),
-      type: 'popup',
-      width: 600,
-      height: 500
-    });
-  } catch (error) {
-    console.error('Error opening correspondent creation window:', error);
-  }
-}
-
-async function createNewDocumentType() {
-  try {
-    const popup = await browser.windows.create({
-      url: browser.runtime.getURL('create-document-type.html'),
-      type: 'popup',
-      width: 600,
-      height: 500,
-    });
-  } catch (error) {
-    console.error('Error opening document type creation window:', error);
-  }
-}
-
-function handlePopupMessage(event) {
-  if (event.data.action === 'correspondentCreated' && event.data.success) {
-    // Repopulate correspondents and select the new one
-    repopulateCorrespondents().then(() => {
-      if (event.data.correspondent) {
-        const select = document.getElementById('correspondent');
-        select.value = event.data.correspondent.id;
-        showSuccess(`Correspondent "${event.data.correspondent.name}" created successfully!`);
-      }
-    });
-  } else if (event.data.action === 'documentTypeCreated' && event.data.success) {
-    // Repopulate document types and select the new one
-    repopulateDocumentTypes().then(() => {
-      if (event.data.documentType) {
-        const select = document.getElementById('documentType');
-        select.value = event.data.documentType.id;
-        showSuccess(`Document type "${event.data.documentType.name}" created successfully!`);
-      }
-    });
-  }
-}
-
-async function repopulateCorrespondents() {
-  try {
-    const settings = await getPaperlessSettings();
-    if (!settings.paperlessUrl || !settings.paperlessToken) return;
-
-    const response = await makePaperlessRequest('/api/correspondents/', {}, settings);
-
-    if (response.ok) {
-      const data = await response.json();
-      const correspondents = data.results.map(c => ({ id: c.id, name: c.name }));
-
-      const select = document.getElementById('correspondent');
-      const currentValue = select.value;
-
-      // Clear existing options except the first one
-      while (select.children.length > 1) {
-        select.removeChild(select.lastChild);
-      }
-
-      // Add all correspondents
-      correspondents.forEach(correspondent => {
-        const option = document.createElement('option');
-        option.value = correspondent.id;
-        option.textContent = correspondent.name;
-        select.appendChild(option);
-      });
-
-      // Restore selection if it still exists
-      if (currentValue && select.querySelector(`option[value="${currentValue}"]`)) {
-        select.value = currentValue;
-      }
-    }
-  } catch (error) {
-    console.error('Error repopulating correspondents:', error);
-  }
-}
-
-async function repopulateDocumentTypes() {
-  try {
-    const settings = await getPaperlessSettings();
-    if (!settings.paperlessUrl || !settings.paperlessToken) return;
-
-    const response = await makePaperlessRequest('/api/document_types/', {}, settings);
-
-    if (response.ok) {
-      const data = await response.json();
-      const documentTypes = data.results.map(d => ({ id: d.id, name: d.name }));
-
-      const select = document.getElementById('documentType');
-      const currentValue = select.value;
-
-      // Clear existing options except the first one
-      while (select.children.length > 1) {
-        select.removeChild(select.lastChild);
-      }
-
-      // Add all document types
-      documentTypes.forEach(docType => {
-        const option = document.createElement('option');
-        option.value = docType.id;
-        option.textContent = docType.name;
-        select.appendChild(option);
-      });
-
-      // Restore selection if it still exists
-      if (currentValue && select.querySelector(`option[value="${currentValue}"]`)) {
-        select.value = currentValue;
-      }
-    }
-  } catch (error) {
-    console.error('Error repopulating document types:', error);
-  }
-}
 
 async function loadUploadData() {
   try {
@@ -171,22 +41,23 @@ async function loadUploadData() {
 
     // Populate file list
     const fileList = document.getElementById('fileList');
-    currentAttachments.forEach(attachment => {
+    if (currentAttachments.length > 0) {
+      currentAttachments.forEach(attachment => {
+        const li = document.createElement('li');
+        li.className = 'file-item';
+        li.textContent = `📄 ${attachment.name} (${browser.messengerUtilities.formatFileSize(attachment.size)})`;
+        fileList.appendChild(li);
+      });
+    } else {
       const li = document.createElement('li');
       li.className = 'file-item';
-      li.textContent = `📄 ${attachment.name} (${browser.messengerUtilities.formatFileSize(attachment.size)})`;
+      li.textContent = 'ℹ️ No attachments (task will be created from email metadata)';
+      li.style.fontStyle = 'italic';
       fileList.appendChild(li);
-    });
-
-    // Set default title (first attachment name without extension)
-    if (currentAttachments.length > 0) {
-      const defaultTitle = currentAttachments[0].name.replace(/\.pdf$/i, '');
-      document.getElementById('documentTitle').value = defaultTitle;
     }
 
-    // Set default date to email date
-    const emailDate = new Date(currentMessage.date);
-    document.getElementById('documentDate').value = emailDate.toISOString().split('T')[0];
+    // Set default title to email subject
+    document.getElementById('taskTitle').value = currentMessage.subject || 'Task from email';
 
     // Show main content
     document.getElementById('loadingSection').style.display = 'none';
@@ -198,88 +69,37 @@ async function loadUploadData() {
   }
 }
 
-async function loadPaperlessData() {
+async function loadVikunjaData() {
   try {
     // Load settings
-    const settings = await getPaperlessSettings();
+    const settings = await getVikunjaSettings();
 
-    // Fetch correspondents from Paperless-ngx API if settings are available
-    let correspondents = [];
-    if (settings.paperlessUrl && settings.paperlessToken) {
+    // Fetch labels from Vikunja API if settings are available
+    let labels = [];
+    if (settings.vikunjaUrl && settings.vikunjaToken) {
       try {
-        const response = await makePaperlessRequest('/api/correspondents/', {}, settings);
+        const response = await makeVikunjaRequest('/api/v1/labels', {}, settings);
         if (response.ok) {
           const data = await response.json();
-          // Store both name and id for each correspondent
-          correspondents = data.results.map(c => ({ id: c.id, name: c.name }));
-          // You can use 'correspondents' as needed here
-          // Example: console.log(correspondents);
+          // Store labels for autocomplete
+          labels = data.map(l => ({ id: l.id, name: l.title, hexColor: l.hex_color }));
         }
       } catch (err) {
-        console.error('Failed to fetch correspondents from Paperless-ngx:', err);
+        console.error('Failed to fetch labels from Vikunja:', err);
       }
     }
 
-    if (correspondents.length > 0) {
-      const correspondentSelect = document.getElementById('correspondent');
-      correspondents.forEach(correspondent => {
-        const option = document.createElement('option');
-        option.value = correspondent.id;
-        option.textContent = correspondent.name;
-        correspondentSelect.appendChild(option);
+    if (labels.length > 0) {
+      availableLabels = labels;
+      // Initialize Fuse.js for fuzzy search
+      fuse = new Fuse(availableLabels, {
+        keys: ['name'],
+        threshold: 0.3
       });
-
-    }
-
-
-    document_types = [];
-    // Fetch document types from Paperless-ngx API if settings are available
-    if (settings.paperlessUrl && settings.paperlessToken) {
-      try {
-        const response = await makePaperlessRequest('/api/document_types/', {}, settings);
-        if (response.ok) {
-          const data = await response.json();
-          // Store document types
-          document_types = data.results.map(d => ({ id: d.id, name: d.name }));
-        }
-      } catch (err) {
-        console.error('Failed to fetch document types from Paperless-ngx:', err);
-      }
-    }
-
-    if (document_types.length > 0) {
-      const docTypeSelect = document.getElementById('documentType');
-      document_types.forEach(docType => {
-        const option = document.createElement('option');
-        option.value = docType.id;
-        option.textContent = docType.name;
-        docTypeSelect.appendChild(option);
-      });
-    }
-
-
-    tags = [];
-
-    // Fetch tags from Paperless-ngx API if settings are available
-    if (settings.paperlessUrl && settings.paperlessToken) {
-      try {
-        const response = await makePaperlessRequest('/api/tags/', {}, settings);
-        if (response.ok) {
-          const data = await response.json();
-          // Store tags
-          tags = data.results.map(t => ({ id: t.id, name: t.name }));
-        }
-      } catch (err) {
-        console.error('Failed to fetch tags from Paperless-ngx:', err);
-      }
-    }
-
-    if (tags.length > 0) {
-      availableTags = tags;
     }
 
   } catch (error) {
-    console.error('Error loading Paperless data:', error);
+    console.error('Error loading Vikunja data:', error);
     // Continue without the data - it's not critical for basic upload
   }
 }
@@ -293,45 +113,45 @@ function setupEventListeners() {
     window.close();
   });
 
-  // Tags input
-  const tagInput = document.querySelector('.tag-input');
-  tagInput.addEventListener('keydown', handleTagInput);
-  tagInput.addEventListener('input', handleTagAutocomplete);
+  // Labels input
+  const labelInput = document.querySelector('.tag-input');
+  labelInput.addEventListener('keydown', handleLabelInput);
+  labelInput.addEventListener('input', handleLabelAutocomplete);
 
   // Hide suggestions when clicking outside
   document.addEventListener('click', function (event) {
-    const tagsContainer = document.getElementById('tagsInput');
-    if (!tagsContainer.contains(event.target)) {
+    const labelsContainer = document.getElementById('labelsInput');
+    if (!labelsContainer.contains(event.target)) {
       hideSuggestions();
     }
   });
 }
 
-function handleTagInput(event) {
+function handleLabelInput(event) {
   if (event.key === 'Enter') {
     event.preventDefault();
 
     // If a suggestion is selected, use it
     const suggestions = document.querySelectorAll('.suggestion-item');
     if (selectedSuggestionIndex >= 0 && suggestions[selectedSuggestionIndex]) {
-      const selectedTag = suggestions[selectedSuggestionIndex].textContent;
-      addTag(selectedTag);
+      const selectedLabel = suggestions[selectedSuggestionIndex].textContent;
+      addLabel(selectedLabel);
       event.target.value = '';
       hideSuggestions();
       return;
     }
 
-    // Otherwise, use the input value
-    const tagValue = event.target.value.trim();
-    if (tagValue && !selectedTags.includes(tagValue)) {
-      addTag(tagValue);
+    // Otherwise, use the input value to create a new label
+    const labelValue = event.target.value.trim();
+    if (labelValue && !selectedLabels.find(l => l.name === labelValue)) {
+      addLabel(labelValue);
       event.target.value = '';
       hideSuggestions();
     }
   } else if (event.key === 'Backspace' && event.target.value === '') {
-    // Remove last tag on backspace if input is empty
-    if (selectedTags.length > 0) {
-      removeTag(selectedTags[selectedTags.length - 1]);
+    // Remove last label on backspace if input is empty
+    if (selectedLabels.length > 0) {
+      removeLabel(selectedLabels[selectedLabels.length - 1].name);
     }
   } else if (event.key === 'ArrowDown') {
     event.preventDefault();
@@ -344,22 +164,12 @@ function handleTagInput(event) {
   }
 }
 
-function handleTagAutocomplete(event) {
+function handleLabelAutocomplete(event) {
   const query = event.target.value.trim();
 
   if (query.length === 0) {
     hideSuggestions();
     return;
-  }
-
-  // Initialize Fuse if not already done and we have tags
-  if (!fuse && availableTags.length > 0) {
-    const options = {
-      includeScore: true,
-      threshold: 0.4, // Lower = more strict, higher = more fuzzy
-      keys: ['name'] // Search in the name field
-    };
-    fuse = new Fuse(availableTags, options);
   }
 
   if (fuse) {
@@ -368,68 +178,83 @@ function handleTagAutocomplete(event) {
   }
 }
 
-function addTag(tagName) {
-  if (!selectedTags.includes(tagName)) {
-    selectedTags.push(tagName);
-    renderTags();
+function addLabel(labelName) {
+  // Check if label already exists in availableLabels
+  const existingLabel = availableLabels.find(l => l.name === labelName);
+  
+  if (!selectedLabels.find(l => l.name === labelName)) {
+    if (existingLabel) {
+      selectedLabels.push(existingLabel);
+    } else {
+      // New label - will be created in Vikunja during upload
+      selectedLabels.push({ name: labelName, isNew: true });
+    }
+    renderLabels();
   }
 }
 
-function removeTag(tagName) {
-  selectedTags = selectedTags.filter(tag => tag !== tagName);
-  renderTags();
+function removeLabel(labelName) {
+  selectedLabels = selectedLabels.filter(label => label.name !== labelName);
+  renderLabels();
 }
 
-function renderTags() {
-  const tagsContainer = document.getElementById('tagsInput');
-  const tagInput = tagsContainer.querySelector('.tag-input');
+function renderLabels() {
+  const labelsContainer = document.getElementById('labelsInput');
+  const labelInput = labelsContainer.querySelector('.tag-input');
 
-  // Remove existing tag elements
-  tagsContainer.querySelectorAll('.tag-item').forEach(el => el.remove());
+  // Remove existing label elements
+  labelsContainer.querySelectorAll('.tag-item').forEach(el => el.remove());
 
-  // Add tag elements
-  selectedTags.forEach(tag => {
-    const tagElement = document.createElement('div');
-    tagElement.className = 'tag-item';
+  // Add label elements
+  selectedLabels.forEach(label => {
+    const labelElement = document.createElement('div');
+    labelElement.className = 'tag-item';
+    
+    // Apply label color if available
+    if (label.hexColor) {
+      labelElement.style.backgroundColor = label.hexColor;
+    } else if (label.isNew) {
+      labelElement.style.backgroundColor = '#6c757d'; // Gray for new labels
+    }
 
-    const tagText = document.createTextNode(tag);
-    tagElement.appendChild(tagText);
+    const labelText = document.createTextNode(label.name);
+    labelElement.appendChild(labelText);
 
     const removeButton = document.createElement('span');
     removeButton.className = 'tag-remove';
     removeButton.textContent = '×';
-    removeButton.addEventListener('click', () => removeTag(tag));
+    removeButton.addEventListener('click', () => removeLabel(label.name));
 
-    tagElement.appendChild(removeButton);
-    tagsContainer.insertBefore(tagElement, tagInput);
+    labelElement.appendChild(removeButton);
+    labelsContainer.insertBefore(labelElement, labelInput);
   });
 }
 
 let selectedSuggestionIndex = -1;
 
-function showSuggestions(tags, query) {
+function showSuggestions(labels, query) {
   hideSuggestions();
 
-  if (tags.length === 0) return;
+  if (labels.length === 0) return;
 
-  const suggestionsContainer = document.getElementById('tagSuggestions');
+  const suggestionsContainer = document.getElementById('labelSuggestions');
   selectedSuggestionIndex = -1;
 
-  // Filter out already selected tags
-  const filteredTags = tags.filter(tag => !selectedTags.includes(tag.name));
+  // Filter out already selected labels
+  const filteredLabels = labels.filter(label => !selectedLabels.find(l => l.name === label.name));
 
-  if (filteredTags.length === 0) return;
+  if (filteredLabels.length === 0) return;
 
   // Show up to 5 suggestions
-  const tagsToShow = filteredTags.slice(0, 5);
+  const labelsToShow = filteredLabels.slice(0, 5);
 
-  tagsToShow.forEach((tag, index) => {
+  labelsToShow.forEach((label, index) => {
     const suggestionItem = document.createElement('div');
     suggestionItem.className = 'suggestion-item';
 
     // Create text with highlighted matching text safely
     const regex = new RegExp(`(${escapeRegex(query)})`, 'gi');
-    const parts = tag.name.split(regex);
+    const parts = label.name.split(regex);
 
     parts.forEach(part => {
       if (part.toLowerCase() === query.toLowerCase()) {
@@ -442,11 +267,11 @@ function showSuggestions(tags, query) {
     });
 
     suggestionItem.addEventListener('click', () => {
-      addTag(tag.name);
-      const tagInput = document.querySelector('.tag-input');
-      tagInput.value = '';
+      addLabel(label.name);
+      const labelInput = document.querySelector('.tag-input');
+      labelInput.value = '';
       hideSuggestions();
-      tagInput.focus();
+      labelInput.focus();
     });
 
     suggestionsContainer.appendChild(suggestionItem);
@@ -456,7 +281,7 @@ function showSuggestions(tags, query) {
 }
 
 function hideSuggestions() {
-  const suggestionsContainer = document.getElementById('tagSuggestions');
+  const suggestionsContainer = document.getElementById('labelSuggestions');
   while (suggestionsContainer.firstChild) {
     suggestionsContainer.removeChild(suggestionsContainer.firstChild);
   }
@@ -502,52 +327,43 @@ async function handleUpload(event) {
     // Collect form data
     const formData = new FormData(event.target);
 
-    // Convert correspondent and document_type to integer IDs if present
-    const correspondentValue = formData.get('correspondent');
-    const correspondentId = correspondentValue ? parseInt(correspondentValue, 10) : undefined;
-    const documentTypeValue = formData.get('document_type');
-    const documentTypeId = documentTypeValue ? parseInt(documentTypeValue, 10) : undefined;
-
-    // Convert selectedTags (names) to IDs using availableTags
-    const tagIds = selectedTags
-      .map(tagName => {
-        const found = availableTags.find(t => t.name === tagName);
-        return found ? found.id : undefined;
-      })
-      .filter(id => id !== undefined);
-
     const uploadOptions = {};
 
     const title = formData.get('title');
     if (title) uploadOptions.title = title;
 
-    if (correspondentId) uploadOptions.correspondent = correspondentId;
+    // Add labels (will be created if they don't exist)
+    if (selectedLabels.length > 0) {
+      uploadOptions.labels = selectedLabels.map(l => l.name);
+    }
 
-    if (documentTypeId) uploadOptions.document_type = documentTypeId;
+    // Add priority
+    const priority = formData.get('priority');
+    if (priority) uploadOptions.priority = parseInt(priority);
 
-    const created = formData.get('created');
-    if (created) uploadOptions.created = created;
+    // Add due date
+    const dueDate = formData.get('dueDate');
+    if (dueDate) uploadOptions.dueDate = new Date(dueDate).toISOString();
 
-    if (tagIds.length > 0) uploadOptions.tags = tagIds;
-
-    // Upload each attachment using background.js - let background handle all notifications
-    for (const attachment of currentAttachments) {
-      try {
-        await browser.runtime.sendMessage({
-          action: 'uploadWithOptions',
-          messageData: currentMessage,
-          attachmentData: attachment,
-          uploadOptions: uploadOptions
-        });
-        // Background script handles all success/error notifications
-      } catch (error) {
-        console.error(`Error sending upload message for ${attachment.name}:`, error);
-        // Even message sending errors will be rare, let background handle notifications
-      }
+    // Upload all attachments using background.js - background will create single task with all files
+    try {
+      await browser.runtime.sendMessage({
+        action: 'uploadWithOptions',
+        messageData: currentMessage,
+        attachmentData: currentAttachments,
+        uploadOptions: uploadOptions
+      });
+      // Background script handles all success/error notifications
+    } catch (error) {
+      console.error(`Error sending upload message:`, error);
+      showError('Error sending upload request: ' + error.message);
     }
 
     // Show completion message and close dialog
-    showSuccess(`Upload requests sent for ${currentAttachments.length} document(s). Check notifications for results.`);
+    const attachmentMsg = currentAttachments.length > 0 
+      ? `Upload request sent for ${currentAttachments.length} file(s). Check notifications for results.`
+      : 'Upload request sent. Check notifications for results.';
+    showSuccess(attachmentMsg);
     closeWindowWithDelay(2000);
 
   } catch (error) {
@@ -558,5 +374,5 @@ async function handleUpload(event) {
   }
 }
 
-// Make removeTag available globally for the tag elements
-window.removeTag = removeTag;
+// Make removeLabel available globally for the label elements
+window.removeLabel = removeLabel;

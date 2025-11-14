@@ -1,9 +1,19 @@
 <!DOCTYPE html>
+<!--
+  Vikunja Uploader for Thunderbird - Options/Settings Page
+  
+  Copyright (c) 2024 Sebastian Jung (https://github.com/sebastian-xyz/paperless-upload-thunderbird)
+  Copyright (c) 2025 Wulf C. Krueger
+  
+  Licensed under the MIT License. See LICENSE file for details.
+  
+  This work is heavily based upon paperless-upload-thunderbird by Sebastian Jung.
+-->
 <html>
 
 <head>
   <meta charset="utf-8">
-  <title>Paperless-ngx PDF Uploader Settings</title>
+  <title>Vikunja Uploader Settings</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -11,19 +21,52 @@
       margin: 0 auto;
       padding: 40px 20px;
       background-color: #f8f9fa;
+      color: #333;
     }
 
-    .container {
-      background: white;
-      padding: 30px;
-      border-radius: 8px;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    }
-
-    h1 {
-      color: #2c3e50;
-      margin-bottom: 30px;
-      text-align: center;
+    @media (prefers-color-scheme: dark) {
+      body {
+        background-color: #1e1e1e;
+        color: #f0f0f0;
+      }
+      label {
+        color: #ffffff !important;
+        font-weight: 600;
+      }
+      input[type="text"],
+      input[type="url"],
+      select,
+      textarea {
+        background: #252526;
+        color: #f0f0f0;
+        border-color: #3e3e42;
+      }
+      input[type="text"]:focus,
+      input[type="url"]:focus,
+      select:focus,
+      textarea:focus {
+        border-color: #0e639c;
+        background: #2d2d30;
+      }
+      .help-text {
+        color: #ffffff !important;
+      }
+      .save-btn {
+        background: #107c10;
+      }
+      .save-btn:hover {
+        background: #0e6b0e;
+      }
+      .status-success {
+        background-color: #1b3a1b;
+        color: #90ee90;
+        border-color: #2d5a2d;
+      }
+      .status-error {
+        background-color: #3d2a2a;
+        color: #ffb3b3;
+        border-color: #5a3a3a;
+      }
     }
 
     .form-group {
@@ -39,6 +82,7 @@
 
     input[type="text"],
     input[type="url"],
+    select,
     textarea {
       width: 100%;
       padding: 12px;
@@ -51,6 +95,7 @@
 
     input[type="text"]:focus,
     input[type="url"]:focus,
+    select:focus,
     textarea:focus {
       outline: none;
       border-color: #007bff;
@@ -96,64 +141,62 @@
       color: #721c24;
       border: 1px solid #f1b0b7;
     }
-
-    .api-info {
-      background: #e7f3ff;
-      border: 1px solid #b3d9ff;
-      padding: 15px;
-      border-radius: 6px;
-      margin-bottom: 20px;
-    }
-
-    .api-info h3 {
-      margin-top: 0;
-      color: #0056b3;
-    }
   </style>
 </head>
 
 <body>
-  <div class="container">
-    <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 30px;">
-      <img src="icons/icon-64.png" alt="Paperless PDF Uploader" style="height: 3em; width: 3em; margin-right: 20px;">
-      <div>
-        <div style="font-size: 2em; font-weight: bold; color: #2c3e50;">Paperless-ngx</div>
-        <div style="font-size: 2em; font-weight: bold; color: #2c3e50;">Uploader Settings</div>
-      </div>
-    </div>
-
-    <div class="api-info">
-      <h3>Getting Your API Token</h3>
-      <p>1. Log into your Paperless-ngx instance</p>
-      <p>2. Go to Settings → API Tokens</p>
-      <p>3. Create a new token or copy an existing one</p>
-      <p>4. Make sure the token has document upload permissions</p>
-    </div>
-
-    <form id="settingsForm">
+  <form id="settingsForm">
       <div class="form-group">
-        <label for="paperlessUrl">Paperless-ngx URL:</label>
-        <input type="url" id="paperlessUrl" name="paperlessUrl" placeholder="https://paperless.yourdomain.com" required>
-        <div class="help-text">Include http:// or https:// (no trailing slash)</div>
+        <label for="vikunjaUrl">Vikunja URL:</label>
+        <input type="url" id="vikunjaUrl" name="vikunjaUrl" 
+               placeholder="https://vikunja.yourdomain.com" 
+               aria-label="Vikunja server URL"
+               aria-describedby="urlHelp"
+               required>
+        <div class="help-text" id="urlHelp">Include http:// or https:// (no trailing slash)</div>
       </div>
 
       <div class="form-group">
-        <label for="paperlessToken">API Token:</label>
-        <input type="text" id="paperlessToken" name="paperlessToken" placeholder="your-api-token-here" required>
-        <div class="help-text">Your Paperless-ngx API authentication token</div>
+        <label for="vikunjaToken">API Token:</label>
+        <input type="text" id="vikunjaToken" name="vikunjaToken" 
+               placeholder="your-api-token-here" 
+               aria-label="Vikunja API authentication token"
+               aria-describedby="tokenHelp"
+               required>
+        <div class="help-text" id="tokenHelp">Your Vikunja API authentication token</div>
+      </div>
+
+      <div class="form-group" id="fetchProjectsGroup">
+        <button type="button" id="fetchProjects" class="save-btn" style="width: auto; background: #6c757d;">
+          Fetch Projects
+        </button>
+        <div class="help-text">Click to load your Vikunja projects after entering URL and Token</div>
+      </div>
+
+      <div class="form-group" id="projectSelectGroup" style="display: none;">
+        <label for="vikunjaProject">Project:</label>
+        <select id="vikunjaProject" name="vikunjaProject" 
+                aria-label="Vikunja project for tasks"
+                aria-describedby="projectHelp"
+                required>
+          <option value="">Select a project...</option>
+        </select>
+        <div class="help-text" id="projectHelp">The project where tasks will be created</div>
       </div>
 
       <div class="form-group">
         <label for="defaultTags">Default Tags (optional):</label>
-        <input type="text" id="defaultTags" name="defaultTags" placeholder="email, thunderbird, imported">
-        <div class="help-text">Comma-separated tags to apply to uploaded documents</div>
+        <input type="text" id="defaultTags" name="defaultTags" 
+               placeholder="email, thunderbird, imported"
+               aria-label="Default tags for uploaded documents"
+               aria-describedby="tagsHelp">
+        <div class="help-text" id="tagsHelp">Comma-separated tags to apply to uploaded documents</div>
       </div>
 
       <button type="submit" class="save-btn">Save Settings</button>
 
-      <div id="statusMessage" class="status-message"></div>
+      <div id="statusMessage" class="status-message" role="status" aria-live="polite"></div>
     </form>
-  </div>
 
   <script src="utils.js"></script>
   <script src="options.js"></script>

@@ -1,55 +1,78 @@
-// Background script for Paperless-ngx PDF Uploader
-console.log("Paperless PDF Uploader loaded!");
+/**
+ * Vikunja Uploader for Thunderbird - Background Script
+ * 
+ * Copyright (c) 2024 Sebastian Jung (https://github.com/sebastian-xyz/paperless-upload-thunderbird)
+ * Copyright (c) 2025 Wulf C. Krueger
+ * 
+ * Licensed under the MIT License. See LICENSE file for details.
+ * 
+ * This work is heavily based upon paperless-upload-thunderbird by Sebastian Jung.
+ */
 
 let currentPdfAttachments = [];
 let currentMessage = null;
 
 // Create context menus for attachments
 browser.runtime.onInstalled.addListener(async () => {
-  // Remove all existing menus first to avoid conflicts
-  await browser.menus.removeAll();
+  try {
+    // Remove all existing menus first to avoid conflicts
+    await browser.menus.removeAll();
 
-  // Message list context menus
-  // Quick upload option
-  browser.menus.create({
-    id: "quick-upload-pdf-paperless",
-    title: "Quick Upload to Paperless-ngx",
-    contexts: ["message_list"],
-    icons: {
-      "32": "icons/icon-32.png",
-      "16": "icons/icon-16.png",
-      "64": "icons/icon-64.png",
-      "128": "icons/icon-128.png"
+    // Message list context menus - guard each create call so an exception
+    // won't abort background script initialization.
+    try {
+      browser.menus.create({
+        id: "quick-upload-pdf-vikunja",
+        title: "Quick Upload to Vikunja",
+        contexts: ["message_list"],
+        icons: {
+          "32": "icons/icon-32.png",
+          "16": "icons/icon-16.png",
+          "64": "icons/icon-64.png",
+          "128": "icons/icon-128.png"
+        }
+      });
+    } catch (err) {
+      console.error('Failed to create quick upload menu:', err);
     }
-  });
 
-  // Advanced upload option with dialog
-  browser.menus.create({
-    id: "advanced-upload-pdf-paperless",
-    title: "Upload to Paperless-ngx (with options)...",
-    contexts: ["message_list"],
-    icons: {
-      "32": "icons/icon-32.png",
-      "16": "icons/icon-16.png",
-      "64": "icons/icon-64.png",
-      "128": "icons/icon-128.png"
+    try {
+      browser.menus.create({
+        id: "advanced-upload-pdf-vikunja",
+        title: "Upload to Vikunja (with options)...",
+        contexts: ["message_list"],
+        icons: {
+          "32": "icons/icon-32.png",
+          "16": "icons/icon-16.png",
+          "64": "icons/icon-64.png",
+          "128": "icons/icon-128.png"
+        }
+      });
+    } catch (err) {
+      console.error('Failed to create advanced upload menu:', err);
     }
-  });
 
-  // Separator
-  browser.menus.create({
-    id: "separator",
-    type: "separator",
-    contexts: ["message_list"]
-  });
+    try {
+      browser.menus.create({
+        id: "separator",
+        type: "separator",
+        contexts: ["message_list"]
+      });
+    } catch (err) {
+      // Non-fatal: separator failed
+      console.warn('Failed to create menu separator:', err);
+    }
+  } catch (err) {
+    console.error('Error during onInstalled initialization:', err);
+  }
 });
 
 // Handle context menu clicks
 browser.menus.onClicked.addListener(async (info, tab) => {
   // Message list context menu handlers
-  if (info.menuItemId === "quick-upload-pdf-paperless") {
+  if (info.menuItemId === "quick-upload-pdf-vikunja") {
     await handleQuickPdfUpload(info);
-  } else if (info.menuItemId === "advanced-upload-pdf-paperless") {
+  } else if (info.menuItemId === "advanced-upload-pdf-vikunja") {
     await handleAdvancedPdfUpload(info);
   }
 });
@@ -83,27 +106,19 @@ async function handleAdvancedPdfUpload(info) {
     // For now, just handle the first message (can be extended)
     const message = messages[0];
 
-    // Get PDF attachments
+    // Get all attachments (not just PDFs)
     const attachments = await browser.messages.listAttachments(message.id);
-    const pdfAttachments = attachments.filter(attachment =>
-      attachment.contentType === "application/pdf" ||
-      attachment.name.toLowerCase().endsWith('.pdf')
-    );
 
-    if (pdfAttachments.length === 0) {
-      showNotification("No PDF attachments found in selected message", "info");
-      return;
-    }
-
+    // Allow creating tasks even without attachments
     // Store current data for the dialog
     currentMessage = message;
-    currentPdfAttachments = pdfAttachments;
+    currentPdfAttachments = attachments;
 
     // Open the advanced upload dialog
-    await openAdvancedUploadDialog(message, pdfAttachments);
+    await openAdvancedUploadDialog(message, attachments);
 
   } catch (error) {
-    console.error("Error handling advanced PDF upload:", error);
+    console.error("Error handling advanced upload:", error);
     showNotification("Error processing attachments", "error");
   }
 }
@@ -111,27 +126,24 @@ async function handleAdvancedPdfUpload(info) {
 async function processQuickPdfUpload(message) {
   try {
     const attachments = await browser.messages.listAttachments(message.id);
-    const pdfAttachments = attachments.filter(attachment =>
-      attachment.contentType === "application/pdf" ||
-      attachment.name.toLowerCase().endsWith('.pdf')
-    );
 
-    if (pdfAttachments.length === 0) {
-      showNotification("No PDF attachments found in selected messages", "info");
+    // If there are no attachments, create task from email metadata only
+    if (attachments.length === 0) {
+      await uploadPdfToPaperless(message, null, { mode: 'quick' });
       return;
     }
 
     // If there's only one attachment, upload directly
-    if (pdfAttachments.length === 1) {
-      await uploadPdfToPaperless(message, pdfAttachments[0], { mode: 'quick' });
+    if (attachments.length === 1) {
+      await uploadPdfToPaperless(message, attachments[0], { mode: 'quick' });
       return;
     }
 
     // If there are multiple attachments, show selection dialog
-    await openAttachmentSelectionDialog(message, pdfAttachments);
+    await openAttachmentSelectionDialog(message, attachments);
 
   } catch (error) {
-    console.error("Error processing PDF attachments:", error);
+    console.error("Error processing attachments:", error);
     showNotification(`Error processing attachments: ${error.message}`, "error");
   }
 }
@@ -206,80 +218,203 @@ async function openAdvancedUploadDialog(message, pdfAttachments) {
 
 async function uploadPdfToPaperless(message, attachment, options = {}) {
   try {
-    const config = await getPaperlessConfig();
-    if (!config.url || !config.token) {
-      showNotification("Please configure Paperless-ngx settings first", "error");
-      return { success: false, error: "Paperless-ngx not configured" };
-    }
-
-    const uploadMode = options.mode || 'quick';
-    showNotification(`Uploading ${attachment.name} to Paperless-ngx...`, "info");
-
-    // Get attachment data
-    const attachmentData = await browser.messages.getAttachmentFile(
-      message.id,
-      attachment.partName
-    );
-
-    // Prepare form data for upload
-    const formData = new FormData();
-    formData.append('document', attachmentData, attachment.name);
-
-    // Prepare metadata based on mode
-    let metadata = {};
-
-    if (uploadMode === 'quick') {
-      // Minimal metadata for quick upload
-      metadata = {
-        title: attachment.name.replace(/\.pdf$/i, ''), // Remove .pdf extension
-      };
-    } else if (uploadMode === 'advanced') {
-      // Use provided options for advanced upload
-      metadata = {
-        title: options.title || attachment.name.replace(/\.pdf$/i, ''),
-        correspondent: options.correspondent,
-        document_type: options.document_type,
-        tags: options.tags || [],
-        created: options.created,
-        source: options.source || 'Thunderbird Email',
-      };
-    }
-
-    // Add metadata to form data (only if values exist)
-    Object.keys(metadata).forEach(key => {
-      if (metadata[key] !== undefined && metadata[key] !== null && metadata[key] !== '') {
-        if (Array.isArray(metadata[key])) {
-          metadata[key].forEach(item => formData.append(key, item));
+    // Prefer Vikunja if configured; fall back to Paperless-ngx behaviour if not.
+    const vikunjaConfig = await getVikunjaConfig();
+    if (vikunjaConfig.url && vikunjaConfig.token) {
+      // Vikunja flow: create a task, then attach the file(s) to the task
+      try {
+        const uploadMode = options.mode || 'quick';
+        // Handle null attachment (no attachments case)
+        const attachments = attachment ? (Array.isArray(attachment) ? attachment : [attachment]) : [];
+        
+        // Prefill task title with email metadata
+        let title;
+        if (uploadMode === 'quick') {
+          // Quick upload: use subject only (no "From:" prefix)
+          title = message.subject || 'Unnamed Task';
         } else {
-          formData.append(key, metadata[key]);
+          // Advanced upload: use provided title or fallback
+          title = options.title || message.subject || 'Unnamed Task';
         }
+        
+        const attachmentCount = attachments.length;
+        const attachmentMsg = attachmentCount > 0 ? ` with ${attachmentCount} attachment(s)` : ' (no attachments)';
+        showNotification(`Creating Vikunja task "${title}"${attachmentMsg}...`, "info");
+
+        // Get full message to extract HTML body
+        const fullMessage = await browser.messages.getFull(message.id);
+        let htmlBody = '';
+        
+        // Extract HTML body from message parts
+        function extractHtmlBody(part) {
+          if (part.contentType && part.contentType.startsWith('text/html') && part.body) {
+            return part.body;
+          }
+          if (part.parts) {
+            for (const subPart of part.parts) {
+              const result = extractHtmlBody(subPart);
+              if (result) return result;
+            }
+          }
+          return null;
+        }
+        
+        htmlBody = extractHtmlBody(fullMessage) || '';
+
+        // Convert label names to label objects (Vikunja expects {title: "name"} format)
+        let labelObjects = [];
+        if (options.labels && options.labels.length > 0) {
+          labelObjects = options.labels.map(labelName => ({ title: labelName }));
+        }
+
+        // Build task payload with title, description, start date, priority, due date, and labels
+        // Vikunja API format: projectId in camelCase for v1.0.0-rc2+
+        const taskPayload = { 
+          title,
+          ...(htmlBody && { description: htmlBody }),
+          ...(message.date && { start_date: new Date(message.date).toISOString() }),
+          ...(options.priority !== undefined && { priority: options.priority }),
+          ...(options.dueDate && { due_date: options.dueDate }),
+          projectId: parseInt(vikunjaConfig.projectId),
+          ...(labelObjects.length > 0 && { labels: labelObjects })
+        };
+
+        // For Vikunja RC2+, tasks are created under project endpoint
+        const taskUrl = `${vikunjaConfig.url}/api/v1/projects/${vikunjaConfig.projectId}/tasks`;
+        
+        // Remove projectId from payload since it's in the URL now
+        const { projectId, ...taskData } = taskPayload;
+
+        // Create task using PUT to /api/v1/projects/{id}/tasks endpoint (Vikunja RC2+)
+        const createResp = await fetch(taskUrl, {
+          method: 'PUT',
+          mode: 'cors',
+          headers: {
+            'Authorization': `Bearer ${vikunjaConfig.token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(taskData)
+        });
+
+        if (!createResp.ok) {
+          const errText = await createResp.text();
+          console.error('Vikunja API Error Response:', errText);
+          throw new Error(`Task creation failed: HTTP ${createResp.status}: ${errText}`);
+        }
+
+        const created = await createResp.json();
+        const taskId = created.id || created.task?.id || null;
+        if (!taskId) throw new Error('No task id returned from Vikunja');
+
+        // Assign labels to the task if any were provided
+        if (options.labels && options.labels.length > 0) {
+          try {
+            // First, get or create labels
+            const labelIds = [];
+            for (const labelName of options.labels) {
+              // Check if label exists
+              const labelsResp = await fetch(`${vikunjaConfig.url}/api/v1/labels`, {
+                method: 'GET',
+                mode: 'cors',
+                headers: {
+                  'Authorization': `Bearer ${vikunjaConfig.token}`,
+                  'Content-Type': 'application/json'
+                }
+              });
+              
+              if (labelsResp.ok) {
+                const allLabels = await labelsResp.json();
+                let labelId = allLabels.find(l => l.title === labelName)?.id;
+                
+                // Create label if it doesn't exist
+                if (!labelId) {
+                  const createLabelResp = await fetch(`${vikunjaConfig.url}/api/v1/labels`, {
+                    method: 'PUT',
+                    mode: 'cors',
+                    headers: {
+                      'Authorization': `Bearer ${vikunjaConfig.token}`,
+                      'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ title: labelName })
+                  });
+                  
+                  if (createLabelResp.ok) {
+                    const newLabel = await createLabelResp.json();
+                    labelId = newLabel.id;
+                  }
+                }
+                
+                if (labelId) labelIds.push(labelId);
+              }
+            }
+            
+            // Assign labels to task
+            for (const labelId of labelIds) {
+              await fetch(`${vikunjaConfig.url}/api/v1/tasks/${taskId}/labels`, {
+                method: 'PUT',
+                mode: 'cors',
+                headers: {
+                  'Authorization': `Bearer ${vikunjaConfig.token}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ label_id: labelId })
+              });
+            }
+          } catch (labelErr) {
+            console.error('Error assigning labels:', labelErr);
+            // Don't fail the whole upload if labels fail
+          }
+        }
+
+        // Upload all attachments to the task (if any)
+        const attachmentNames = [];
+        for (const att of attachments) {
+          try {
+            const attachmentData = await browser.messages.getAttachmentFile(
+              message.id,
+              att.partName
+            );
+
+            const formData = new FormData();
+            formData.append('files', attachmentData, att.name);
+
+            // Vikunja RC2 uses PUT method for attachments
+            const attachResp = await fetch(`${vikunjaConfig.url}/api/v1/tasks/${taskId}/attachments`, {
+              method: 'PUT',
+              mode: 'cors',
+              headers: {
+                'Authorization': `Bearer ${vikunjaConfig.token}`
+              },
+              body: formData
+            });
+
+            if (!attachResp.ok) {
+              const errText = await attachResp.text();
+              console.warn(`Failed to attach ${att.name}: HTTP ${attachResp.status}: ${errText}`);
+            } else {
+              attachmentNames.push(att.name);
+            }
+          } catch (attError) {
+            console.warn(`Error attaching ${att.name}:`, attError);
+          }
+        }
+
+        const successCount = attachmentNames.length;
+        const resultMsg = attachmentCount > 0 
+          ? `✅ Task created with ${successCount}/${attachmentCount} attachment(s)`
+          : `✅ Task created successfully`;
+        showNotification(resultMsg, "success");
+        return { success: true, result: created, attachedCount: successCount };
+      } catch (error) {
+        console.error('Error uploading to Vikunja:', error);
+        showNotification(`❌ Failed to create task: ${error.message}`, 'error');
+        return { success: false, error: error.message };
       }
-    });
-
-    // Upload to Paperless-ngx
-    const response = await fetch(`${config.url}/api/documents/post_document/`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Token ${config.token}`
-      },
-      body: formData
-    });
-
-    if (response.ok) {
-      const result = await response.json();
-      showNotification(`✅ Successfully uploaded ${attachment.name} to Paperless-ngx`, "success");
-      console.log("Upload successful:", result);
-
-      // Return success data for dialog callback
-      return { success: true, result };
-    } else {
-      const errorText = await response.text();
-      throw new Error(`HTTP ${response.status}: ${errorText}`);
     }
 
   } catch (error) {
-    console.error("Error uploading to Paperless-ngx:", error);
-    showNotification(`❌ Failed to upload ${attachment.name}: ${error.message}`, "error");
+    console.error("Error uploading:", error);
+    showNotification(`❌ Failed to upload: ${error.message}`, "error");
     return { success: false, error: error.message };
   }
 }
@@ -302,39 +437,20 @@ browser.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
     try {
       const { messageData, selectedAttachments } = message;
 
-      let successCount = 0;
-      let errorCount = 0;
-
-      // Upload each selected attachment
-      for (const attachment of selectedAttachments) {
-        try {
-          const result = await uploadPdfToPaperless(
-            messageData,
-            attachment,
-            { mode: 'quick' }
-          );
-
-          if (result.success) {
-            successCount++;
-          } else {
-            errorCount++;
-          }
-        } catch (error) {
-          errorCount++;
-          console.error(`Error uploading ${attachment.name}:`, error);
-        }
-      }
+      // Upload all selected attachments to a single task
+      const result = await uploadPdfToPaperless(
+        messageData,
+        selectedAttachments,
+        { mode: 'quick' }
+      );
 
       // Show summary notification
-      if (successCount > 0 && errorCount === 0) {
-        showNotification(`✅ Successfully uploaded ${successCount} document(s) to Paperless-ngx`, "success");
-      } else if (successCount > 0) {
-        showNotification(`⚠️ Uploaded ${successCount} document(s), ${errorCount} failed`, "info");
+      if (result.success) {
+            sendResponse({ success: true });
       } else {
-        showNotification(`❌ Failed to upload all documents`, "error");
+            showNotification(`❌ Failed to upload: ${result.error}`, "error");
+            sendResponse({ success: false, error: result.error });
       }
-
-      sendResponse({ success: true, successCount, errorCount });
     } catch (error) {
       console.error("Error in quickUploadSelected:", error);
       sendResponse({ success: false, error: error.message });
@@ -343,12 +459,10 @@ browser.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
   }
 
   if (message.action === "uploadWithOptions") {
-    console.log('📤 Background: Received uploadWithOptions message');
-
     (async () => {
       try {
         const { messageData, attachmentData, uploadOptions } = message;
-        console.log('📤 Background: Processing upload for:', attachmentData.name);
+        const isArray = Array.isArray(attachmentData);
 
         // Reconstruct message and attachment objects
         const messageObj = messageData;
@@ -360,19 +474,15 @@ browser.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
           { mode: 'advanced', ...uploadOptions }
         );
 
-        console.log('📋 Background: Upload result for', attachmentData.name, ':', result);
-        console.log('📋 Background: About to send response:', JSON.stringify(result));
-
         // Ensure we always send a valid response
         if (result && typeof result === 'object' && result.hasOwnProperty('success')) {
-          console.log('📋 Background: Sending valid result');
           sendResponse(result);
         } else {
-          console.error('❌ Background: Invalid result, sending error response:', result);
+          console.error('Background: Invalid result, sending error response:', result);
           sendResponse({ success: false, error: "Invalid response from upload function" });
         }
       } catch (error) {
-        console.error("❌ Background: Error in upload with options:", error);
+        console.error("Background: Error in upload with options:", error);
         sendResponse({ success: false, error: error.message });
       }
     })();
@@ -452,6 +562,17 @@ async function getPaperlessConfig() {
   };
 }
 
+async function getVikunjaConfig() {
+  const result = await browser.storage.sync.get(['vikunjaUrl', 'vikunjaToken', 'vikunjaProject', 'defaultTags']);
+  const token = result.vikunjaToken ? result.vikunjaToken.trim() : '';
+  return {
+    url: result.vikunjaUrl?.replace(/\/$/, ''),
+    token: token,
+    projectId: result.vikunjaProject,
+    defaultTags: result.defaultTags ? result.defaultTags.split(',').map(t => t.trim()) : []
+  };
+}
+
 function showNotification(message, type = "info") {
   // const iconUrl = type === "error" ? "icons/error.png" :
   //   type === "success" ? "icons/success.png" : "icons/icon-32.png";
@@ -460,7 +581,7 @@ function showNotification(message, type = "info") {
   browser.notifications.create({
     type: "basic",
     iconUrl: iconUrl,
-    title: "📄 Paperless PDF Uploader",
+    title: "📄 Vikunja Uploader",
     message: message
   });
 }
@@ -481,24 +602,16 @@ async function handleAdvancedUploadFromDisplay(messageId) {
   try {
     const message = await browser.messages.get(messageId);
 
-    // Get PDF attachments
+    // Get all attachments (not just PDFs)
     const attachments = await browser.messages.listAttachments(message.id);
-    const pdfAttachments = attachments.filter(attachment =>
-      attachment.contentType === "application/pdf" ||
-      attachment.name.toLowerCase().endsWith('.pdf')
-    );
 
-    if (pdfAttachments.length === 0) {
-      showNotification("No PDF attachments found in displayed message", "info");
-      return;
-    }
-
+    // Allow creating tasks even without attachments
     // Store current data for the dialog
     currentMessage = message;
-    currentPdfAttachments = pdfAttachments;
+    currentPdfAttachments = attachments;
 
     // Open the advanced upload dialog
-    await openAdvancedUploadDialog(message, pdfAttachments);
+    await openAdvancedUploadDialog(message, attachments);
   } catch (error) {
     console.error("Error handling advanced upload from display:", error);
     showNotification("Error processing advanced upload", "error");

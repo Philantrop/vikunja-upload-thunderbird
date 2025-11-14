@@ -1,4 +1,14 @@
 <!doctype html>
+<!--
+  Vikunja Uploader for Thunderbird - Popup Window
+  
+  Copyright (c) 2024 Sebastian Jung (https://github.com/sebastian-xyz/paperless-upload-thunderbird)
+  Copyright (c) 2025 Wulf C. Krueger
+  
+  Licensed under the MIT License. See LICENSE file for details.
+  
+  This work is heavily based upon paperless-upload-thunderbird by Sebastian Jung.
+-->
 <html>
 
 <head>
@@ -9,6 +19,20 @@
       padding: 20px;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       margin: 0;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      body { background-color: #1e1e1e; color: #ffffff; }
+      .header { border-color: #555; }
+      .header h3 { color: #ffffff !important; font-weight: 600; }
+      .status-item { background: #2d2d30 !important; border: 1px solid #3e3e42; }
+      .status-item span { color: #ffffff !important; }
+      .info-text { background: #2d2d30 !important; border-left-color: #0b7dda; color: #ffffff !important; }
+      .info-text strong { color: #ffffff !important; }
+      .action-btn { background: #0e639c; color: #ffffff; }
+      .action-btn:hover { background: #1177bb; }
+      .secondary-btn { background: #3e3e42; color: #ffffff; }
+      .secondary-btn:hover { background: #505053; }
     }
 
     .header {
@@ -35,6 +59,12 @@
       padding: 8px;
       border-radius: 4px;
       background: #f8f9fa;
+      color: #333;
+    }
+
+    .status-item span {
+      color: #333;
+      font-weight: 500;
     }
 
     .status-icon {
@@ -97,31 +127,31 @@
 <body>
   <div class="header">
     <h3>
-      <img src="icons/icon-64.png" alt="Paperless PDF Uploader"
+      <img src="icons/icon-64.png" alt="Vikunja Uploader"
         style="height: 1em; width: 1em; vertical-align: middle; margin-right: 8px;">
-      Paperless PDF Uploader
+      Vikunja Uploader
     </h3>
   </div>
 
-  <div class="status-section">
+  <div class="status-section" role="status" aria-label="Configuration status">
     <div class="status-item">
-      <div class="status-icon" id="url-status"></div>
-      <span>Paperless-ngx URL</span>
+      <div class="status-icon" id="url-status" aria-hidden="true"></div>
+      <span>Vikunja URL</span>
     </div>
     <div class="status-item">
-      <div class="status-icon" id="token-status"></div>
+      <div class="status-icon" id="token-status" aria-hidden="true"></div>
       <span>API Token</span>
     </div>
   </div>
 
-  <button class="action-btn" id="test-connection">Test Connection</button>
-  <button class="action-btn secondary-btn" id="open-options">Configure Settings</button>
+  <button class="action-btn" id="test-connection" aria-label="Test connection to Vikunja server">Test Connection</button>
+  <button class="action-btn secondary-btn" id="open-options" aria-label="Open settings to configure Vikunja URL and token">Configure Settings</button>
 
   <div class="info-text">
     <strong>How to use:</strong><br>
-    1. Configure your Paperless-ngx settings<br>
-    2. Right-click on emails with PDF attachments<br>
-    3. Select "Upload PDF to Paperless-ngx"
+    1. Configure your Vikunja settings<br>
+    2. Right-click on emails (with or without attachments)<br>
+    3. Select "Upload to Vikunja"
   </div>
   <script src="utils.js"></script>
   <script src="popup.js"></script>

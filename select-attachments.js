@@ -1,3 +1,14 @@
+/**
+ * Vikunja Uploader for Thunderbird - Attachment Selection Dialog
+ * 
+ * Copyright (c) 2024 Sebastian Jung (https://github.com/sebastian-xyz/paperless-upload-thunderbird)
+ * Copyright (c) 2025 Wulf C. Krueger
+ * 
+ * Licensed under the MIT License. See LICENSE file for details.
+ * 
+ * This work is heavily based upon paperless-upload-thunderbird by Sebastian Jung.
+ */
+
 let currentMessage = null;
 let allAttachments = [];
 
