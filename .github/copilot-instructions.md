@@ -9,7 +9,7 @@ Keep edits minimal, prefer small PRs, and validate changes by loading the add-on
 
 ## Key files and responsibilities
 - `manifest.json` — extension permissions (messagesRead, menus, notifications, storage) and entry points (background script, popup pages, options page).
-- `background.js` — central logic: context menu creation, handlers (quick/advanced), message listeners (`browser.runtime.onMessage`) and upload logic (`uploadPdfToVikunja`). See actions: `quickUploadSelected`, `uploadWithOptions`, `getCorrespondents`, `quickUploadFromDisplay`, `advancedUploadFromDisplay`.
+- `background.js` — central logic: context menu creation, handlers (quick/advanced), message listeners (`browser.runtime.onMessage`) and upload logic (`uploadToVikunja`). See actions: `quickUploadSelected`, `uploadWithOptions`, `getCorrespondents`, `quickUploadFromDisplay`, `advancedUploadFromDisplay`.
 - `upload-dialog.js` — advanced upload UI: pulls `currentUploadData` from `storage.local`, allows selecting correspondent/document type/tags and posts `uploadWithOptions` to background.
 - `select-attachments.js` — quick-upload selection dialog: reads `quickUploadData` from `storage.local`, sends `quickUploadSelected` to background.
 - `utils.js` — shared helpers (UI messages, `getVikunjaSettings()`, `makeVikunjaRequest()`), exported on `window.*` for pages to use.
@@ -52,8 +52,8 @@ Keep edits minimal, prefer small PRs, and validate changes by loading the add-on
 - When changing inter-window message shapes, update both sender and `background.js` handlers; the listeners rely on specific property names (e.g., `messageData`, `attachmentData`, `uploadOptions`).
 
 ## Where to look for examples
-- Full upload flow (background + dialog): `background.js` (handlers and `uploadPdfToVikunja`) and `upload-dialog.js` (UI + metadata assembly).
-- Quick upload selection flow: `background.js` (processQuickPdfUpload/openAttachmentSelectionDialog) and `select-attachments.js` (selection UI).
+- Full upload flow (background + dialog): `background.js` (handlers and `uploadToVikunja`) and `upload-dialog.js` (UI + metadata assembly).
+- Quick upload selection flow: `background.js` (processQuickUpload/openAttachmentSelectionDialog) and `select-attachments.js` (selection UI).
 - API helpers and storage functions: `utils.js`.
 
 If anything above is unclear or you want additional examples (e.g., fleshed-out message payload shapes or a short unit-test harness suggestion), tell me which part to expand and I will iterate.

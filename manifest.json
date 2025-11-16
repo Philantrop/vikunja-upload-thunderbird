@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "name": "Vikunja Uploader",
   "version": "1.0.0",
-  "description": "Upload PDF attachments directly to Vikunja from Thunderbird",
+  "description": "Create tasks in Vikunja directly from emails with attachments, labels, priorities, and due dates",
   "applications": {
     "gecko": {
       "id": "@vikunja-uploader.thunderbird",

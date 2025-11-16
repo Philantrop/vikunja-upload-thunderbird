@@ -1,7 +1,7 @@
 {
   "name": "vikunja-upload-thunderbird",
   "version": "1.0.0",
-  "description": "Upload PDF attachments directly to Vikunja from Thunderbird",
+  "description": "Create tasks in Vikunja directly from emails with attachments, labels, priorities, and due dates",
   "scripts": {
     "build": "bash build.sh",
     "build:watch": "bash build.sh && echo 'Watching for changes...' && fswatch -o . | xargs -n1 -I{} bash build.sh",

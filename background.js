@@ -9,7 +9,7 @@
  * This work is heavily based upon paperless-upload-thunderbird by Sebastian Jung.
  */
 
-let currentPdfAttachments = [];
+let currentAttachments = [];
 let currentMessage = null;
 
 // Create context menus for attachments
@@ -22,7 +22,7 @@ browser.runtime.onInstalled.addListener(async () => {
     // won't abort background script initialization.
     try {
       browser.menus.create({
-        id: "quick-upload-pdf-vikunja",
+        id: "quick-upload-vikunja",
         title: "Quick Upload to Vikunja",
         contexts: ["message_list"],
         icons: {
@@ -38,7 +38,7 @@ browser.runtime.onInstalled.addListener(async () => {
 
     try {
       browser.menus.create({
-        id: "advanced-upload-pdf-vikunja",
+        id: "advanced-upload-vikunja",
         title: "Upload to Vikunja (with options)...",
         contexts: ["message_list"],
         icons: {
@@ -70,14 +70,14 @@ browser.runtime.onInstalled.addListener(async () => {
 // Handle context menu clicks
 browser.menus.onClicked.addListener(async (info, tab) => {
   // Message list context menu handlers
-  if (info.menuItemId === "quick-upload-pdf-vikunja") {
-    await handleQuickPdfUpload(info);
-  } else if (info.menuItemId === "advanced-upload-pdf-vikunja") {
-    await handleAdvancedPdfUpload(info);
+  if (info.menuItemId === "quick-upload-vikunja") {
+    await handleQuickUpload(info);
+  } else if (info.menuItemId === "advanced-upload-vikunja") {
+    await handleAdvancedUpload(info);
   }
 });
 
-async function handleQuickPdfUpload(info) {
+async function handleQuickUpload(info) {
   try {
     const messages = info.selectedMessages.messages;
     if (!messages || messages.length === 0) {
@@ -85,17 +85,17 @@ async function handleQuickPdfUpload(info) {
       return;
     }
 
-    // Process each selected message for PDF attachments
+    // Process each selected message for attachments
     for (const message of messages) {
-      await processQuickPdfUpload(message);
+      await processQuickUpload(message);
     }
   } catch (error) {
-    console.error("Error handling quick PDF upload:", error);
+    console.error("Error handling quick upload:", error);
     showNotification("Error processing attachments", "error");
   }
 }
 
-async function handleAdvancedPdfUpload(info) {
+async function handleAdvancedUpload(info) {
   try {
     const messages = info.selectedMessages.messages;
     if (!messages || messages.length === 0) {
@@ -106,13 +106,13 @@ async function handleAdvancedPdfUpload(info) {
     // For now, just handle the first message (can be extended)
     const message = messages[0];
 
-    // Get all attachments (not just PDFs)
+    // Get all attachments
     const attachments = await browser.messages.listAttachments(message.id);
 
     // Allow creating tasks even without attachments
     // Store current data for the dialog
     currentMessage = message;
-    currentPdfAttachments = attachments;
+    currentAttachments = attachments;
 
     // Open the advanced upload dialog
     await openAdvancedUploadDialog(message, attachments);
@@ -123,19 +123,19 @@ async function handleAdvancedPdfUpload(info) {
   }
 }
 
-async function processQuickPdfUpload(message) {
+async function processQuickUpload(message) {
   try {
     const attachments = await browser.messages.listAttachments(message.id);
 
     // If there are no attachments, create task from email metadata only
     if (attachments.length === 0) {
-      await uploadPdfToPaperless(message, null, { mode: 'quick' });
+      await uploadToVikunja(message, null, { mode: 'quick' });
       return;
     }
 
     // If there's only one attachment, upload directly
     if (attachments.length === 1) {
-      await uploadPdfToPaperless(message, attachments[0], { mode: 'quick' });
+      await uploadToVikunja(message, attachments[0], { mode: 'quick' });
       return;
     }
 
@@ -148,7 +148,7 @@ async function processQuickPdfUpload(message) {
   }
 }
 
-async function openAttachmentSelectionDialog(message, pdfAttachments) {
+async function openAttachmentSelectionDialog(message, attachments) {
   try {
     // Store data for the dialog to access
     await browser.storage.local.set({
@@ -159,7 +159,7 @@ async function openAttachmentSelectionDialog(message, pdfAttachments) {
           author: message.author,
           date: message.date
         },
-        attachments: pdfAttachments.map(att => ({
+        attachments: attachments.map(att => ({
           name: att.name,
           partName: att.partName,
           size: att.size
@@ -181,7 +181,7 @@ async function openAttachmentSelectionDialog(message, pdfAttachments) {
   }
 }
 
-async function openAdvancedUploadDialog(message, pdfAttachments) {
+async function openAdvancedUploadDialog(message, attachments) {
   // Create a new window/tab for the upload dialog
   const dialogUrl = browser.runtime.getURL("upload-dialog.html");
 
@@ -195,7 +195,7 @@ async function openAdvancedUploadDialog(message, pdfAttachments) {
           author: message.author,
           date: message.date
         },
-        attachments: pdfAttachments.map(att => ({
+        attachments: attachments.map(att => ({
           name: att.name,
           partName: att.partName,
           size: att.size
@@ -216,7 +216,7 @@ async function openAdvancedUploadDialog(message, pdfAttachments) {
   }
 }
 
-async function uploadPdfToPaperless(message, attachment, options = {}) {
+async function uploadToVikunja(message, attachment, options = {}) {
   try {
     // Prefer Vikunja if configured; fall back to Paperless-ngx behaviour if not.
     const vikunjaConfig = await getVikunjaConfig();
@@ -438,7 +438,7 @@ browser.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
       const { messageData, selectedAttachments } = message;
 
       // Upload all selected attachments to a single task
-      const result = await uploadPdfToPaperless(
+      const result = await uploadToVikunja(
         messageData,
         selectedAttachments,
         { mode: 'quick' }
@@ -468,7 +468,7 @@ browser.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
         const messageObj = messageData;
         const attachmentObj = attachmentData;
 
-        const result = await uploadPdfToPaperless(
+        const result = await uploadToVikunja(
           messageObj,
           attachmentObj,
           { mode: 'advanced', ...uploadOptions }
@@ -590,7 +590,7 @@ function showNotification(message, type = "info") {
 async function handleQuickUploadFromDisplay(messageId) {
   try {
     const message = await browser.messages.get(messageId);
-    await processQuickPdfUpload(message);
+    await processQuickUpload(message);
   } catch (error) {
     console.error("Error handling quick upload from display:", error);
     showNotification("Error processing quick upload", "error");
@@ -602,13 +602,13 @@ async function handleAdvancedUploadFromDisplay(messageId) {
   try {
     const message = await browser.messages.get(messageId);
 
-    // Get all attachments (not just PDFs)
+    // Get all attachments
     const attachments = await browser.messages.listAttachments(message.id);
 
     // Allow creating tasks even without attachments
     // Store current data for the dialog
     currentMessage = message;
-    currentPdfAttachments = attachments;
+    currentAttachments = attachments;
 
     // Open the advanced upload dialog
     await openAdvancedUploadDialog(message, attachments);

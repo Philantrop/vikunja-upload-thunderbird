@@ -10,7 +10,7 @@
 ## Features
 
 - ✉️ **Quick Upload**: Right-click any email to instantly create a task from it
-- 📎 **Attachment Support**: Automatically attach PDF and other file types to tasks
+- 📎 **Attachment Support**: Automatically attach email attachments to tasks
 - 🏷️ **Smart Labels**: Auto-complete labels from your Vikunja instance or create new ones on the fly
 - 📊 **Priority Levels**: Set task priority (Low, Medium, High, Urgent, Critical)
 - 📅 **Due Dates**: Add deadlines directly from the upload dialog
@@ -59,7 +59,7 @@ Before using the add-on, you need to configure your Vikunja instance:
    - **Title**: Email subject (without "From:" prefix)
    - **Description**: Email body (HTML preserved)
    - **Start Date**: Email timestamp
-   - **Attachments**: All PDF and compatible files from the email
+   - **Attachments**: All email attachments
 
 ### Advanced Upload
 1. Right-click any email in your inbox
@@ -155,7 +155,7 @@ This add-on is designed for **Vikunja API v1** and has been tested with:
 - Generate a new token in Vikunja Settings > API Tokens and update it in the add-on preferences
 
 ### "No attachments found"
-- Currently, the add-on prioritizes PDF files but supports other attachment types
+- The add-on supports all email attachment types
 - Inline images in HTML emails may not be detected as attachments
 
 ### Labels not appearing
